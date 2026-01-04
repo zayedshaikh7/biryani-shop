@@ -4,7 +4,7 @@ import Dashboard from './components/Dashboard';
 import NewOrder from './components/NewOrder';
 import OrderList from './components/OrderList';
 import OrderDetails from './components/OrderDetails';
-import Login from './components/login';
+import Login from './components/Login';
 import { Order } from './types/order';
 import { Home, Plus, List, LogOut } from 'lucide-react';
 
