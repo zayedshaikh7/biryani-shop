@@ -11,7 +11,7 @@ export interface Order {
   biryani_type: string;
   quantity: number;
   price: number;
-  order_type: OrderType;
+  
   order_status: OrderStatus;
   payment_mode: PaymentMode | null;
   advance_payment: number;
