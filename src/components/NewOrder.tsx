@@ -166,7 +166,8 @@ export default function NewOrder({ onBack, onSuccess }: NewOrderProps) {
             onChange={(e) => setFormData({ ...formData, order_status: e.target.value as OrderStatus })}
           >
             <option value="Pending">Pending</option>
-            <option value="Cooking">Cooking</option>
+            <option value="Ready">Ready</option>
+            <option value="Completed">Completed</option>
           </select>
         </div>
 

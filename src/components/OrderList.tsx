@@ -65,7 +65,7 @@ export default function OrderList({ onViewOrder }: OrderListProps) {
   const getStatusStyle = (status: string) => {
     switch (status) {
       case 'Pending': return 'bg-amber-50 text-amber-600 border-amber-100';
-      case 'Cooking': return 'bg-blue-50 text-blue-600 border-blue-100';
+      // case 'Cooking': return 'bg-blue-50 text-blue-600 border-blue-100';
       case 'Ready': return 'bg-emerald-50 text-emerald-600 border-emerald-100';
       case 'Completed': return 'bg-slate-100 text-slate-500 border-slate-200';
       default: return 'bg-gray-50 text-gray-500';

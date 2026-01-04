@@ -1,5 +1,5 @@
 export type OrderType = 'Dine-in' | 'Takeaway' | 'Delivery';
-export type OrderStatus = 'Pending' | 'Cooking' | 'Ready' | 'Completed';
+export type OrderStatus = 'Pending' | 'Ready' | 'Completed';
 export type PaymentMode = 'Cash' | 'UPI' | 'Card';
 export type PaymentStatus = 'Paid' | 'Partially Paid' | 'Unpaid';
 
