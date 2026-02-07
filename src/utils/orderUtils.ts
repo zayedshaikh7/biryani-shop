@@ -4,20 +4,8 @@ export const generateOrderNumber = (): string => {
   return `ORD${timestamp}${random}`;
 };
 
-export const BIRYANI_MENU = [
-  { name: 'Chicken Biryani', price: 180 }, // Price per KG
-  { name: 'Mutton Biryani', price: 250 },
-  { name: 'Veg Biryani', price: 150 },
-  { name: 'Egg Biryani', price: 130 },
-  { name: 'Prawns Biryani', price: 280 },
-  { name: 'Fish Biryani', price: 200 },
-];
-
-export const calculatePrice = (biryaniType: string, quantity: number): number => {
-  const item = BIRYANI_MENU.find(b => b.name === biryaniType);
-  // FEATURE: Handles decimal quantity (e.g., 1.5 * 180 = 270)
-  // Math.round ensures we have clean whole numbers for the currency
-  return item ? Math.round(item.price * quantity) : 0;
+export const calculatePrice = (unitPrice: number, quantity: number): number => {
+  return Number(unitPrice || 0) * Number(quantity || 0);
 };
 
 export const calculatePaymentStatus = (totalPrice: number, advancePayment: number): string => {
@@ -44,4 +32,8 @@ export const formatDate = (dateString: string): string => {
     hour: '2-digit',
     minute: '2-digit',
   });
+};
+
+export const sumItemsTotal = (items: Array<{ quantity: number; unit_price: number }>): number => {
+  return items.reduce((sum, item) => sum + calculatePrice(item.unit_price, item.quantity), 0);
 };

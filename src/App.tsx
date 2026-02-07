@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from './lib/supabase';
 import Dashboard from './components/Dashboard';
+import ShopSetup from './components/ShopSetup';
 import NewOrder from './components/NewOrder';
 import OrderList from './components/OrderList';
 import OrderDetails from './components/OrderDetails';
@@ -14,19 +15,51 @@ function App() {
   const [session, setSession] = useState<any>(null);
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [shopName, setShopName] = useState<string | null>(null);
+  const [profileChecked, setProfileChecked] = useState(false);
 
-  // Auth Listener to check login status
+  // Auth Listener to check login status and load profile
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
+      if (session) {
+        fetchProfile(session.user.id);
+      } else {
+        setProfileChecked(true);
+      }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
+      if (session) {
+        fetchProfile(session.user.id);
+      } else {
+        setShopName(null);
+        setProfileChecked(true);
+      }
     });
 
     return () => subscription.unsubscribe();
   }, []);
+
+  const fetchProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('shop_name')
+        .eq('user_id', userId)
+        .single();
+      if (error && error.code !== 'PGRST116') {
+        console.error('Profile fetch error:', error.message);
+      }
+      setShopName(data?.shop_name || null);
+    } catch (e) {
+      console.error('Profile fetch exception:', e);
+      setShopName(null);
+    } finally {
+      setProfileChecked(true);
+    }
+  };
 
   const handleViewOrder = (order: Order) => {
     setSelectedOrder(order);
@@ -46,10 +79,24 @@ function App() {
     return <Login />;
   }
 
+  // Wait for profile check
+  if (!profileChecked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-gray-500 font-semibold">Loading your workspace…</div>
+      </div>
+    );
+  }
+
+  // Show one-time Shop Setup for users without a profile
+  if (!shopName) {
+    return <ShopSetup onComplete={(name: string) => setShopName(name)} />;
+  }
+
   const renderPage = () => {
     switch (currentPage) {
       case 'dashboard':
-        return <Dashboard />;
+        return <Dashboard shopName={shopName || undefined} />;
       case 'new-order':
         return (
           <NewOrder
@@ -68,7 +115,7 @@ function App() {
           />
         ) : null;
       default:
-        return <Dashboard />;
+        return <Dashboard shopName={shopName || undefined} />;
     }
   };
 
@@ -78,7 +125,7 @@ function App() {
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-2">
-              <div className="text-2xl font-bold text-blue-600">Biryani Shop</div>
+              <div className="text-2xl font-bold text-blue-600">OrderTrack</div>
             </div>
 
             <div className="flex gap-2">

@@ -6,18 +6,27 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       alert(error.message);
+    }
+    setLoading(false);
+  };
+
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    const { error } = await supabase.auth.signUp({ email, password });
+    if (error) {
+      alert(error.message);
+    } else {
+      alert('Account created! Please check your email to confirm, then log in.');
+      setIsSignUp(false);
     }
     setLoading(false);
   };
@@ -29,18 +38,18 @@ export default function Login() {
           <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
             <LogIn className="text-blue-600" size={32} />
           </div>
-          <h1 className="text-2xl font-bold text-gray-800">Owner Login</h1>
-          <p className="text-gray-500">Sign in to manage your Biryani orders</p>
+          <h1 className="text-2xl font-bold text-gray-800">Owner {isSignUp ? 'Sign Up' : 'Login'}</h1>
+          <p className="text-gray-500">{isSignUp ? 'Create your OrderTrack account' : 'Sign in to manage orders across shops'}</p>
         </div>
 
-        <form onSubmit={handleLogin} className="space-y-6">
+        <form onSubmit={isSignUp ? handleSignUp : handleLogin} className="space-y-6">
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">Email Address</label>
             <input
               type="email"
               required
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-              placeholder="admin@biryanishop.com"
+              placeholder="admin@ordertrack.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
@@ -63,9 +72,19 @@ export default function Login() {
             disabled={loading}
             className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition disabled:opacity-50"
           >
-            {loading ? 'Authenticating...' : 'Login to Dashboard'}
+            {loading ? (isSignUp ? 'Creating account...' : 'Authenticating...') : (isSignUp ? 'Create Account' : 'Login to Dashboard')}
           </button>
         </form>
+
+        <div className="text-center mt-4">
+          <button
+            type="button"
+            onClick={() => setIsSignUp(!isSignUp)}
+            className="text-blue-600 font-semibold hover:underline"
+          >
+            {isSignUp ? 'Already have an account? Login' : "Don't have an account? Sign Up"}
+          </button>
+        </div>
       </div>
     </div>
   );

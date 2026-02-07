@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { Order } from '../types/order';
+import { Order, OrderItem } from '../types/order';
 import { formatCurrency, formatDate } from '../utils/orderUtils';
 import { Search, Filter, Eye, Calendar, User, Phone, Package } from 'lucide-react';
 
@@ -9,8 +9,8 @@ interface OrderListProps {
 }
 
 export default function OrderList({ onViewOrder }: OrderListProps) {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<(Order & { order_items?: OrderItem[] })[]>([]);
+const [filteredOrders, setFilteredOrders] = useState<(Order & { order_items?: OrderItem[] })[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('All');
@@ -22,13 +22,17 @@ export default function OrderList({ onViewOrder }: OrderListProps) {
 
   useEffect(() => {
     filterOrders();
-  }, [orders, searchTerm, statusFilter, dateFilter]);
+  }, [orders, searchTerm, /* statusFilter, */ dateFilter]);
 
   const fetchOrders = async () => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
       const { data, error } = await supabase
         .from('orders')
-        .select('*')
+        .select('*, order_items(product_name, quantity, unit_price, line_total)')
+        .eq('shop_id', user.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -49,9 +53,6 @@ export default function OrderList({ onViewOrder }: OrderListProps) {
           order.mobile_number.includes(searchTerm) ||
           order.customer_name.toLowerCase().includes(searchTerm.toLowerCase())
       );
-    }
-    if (statusFilter !== 'All') {
-      filtered = filtered.filter((order) => order.order_status === statusFilter);
     }
     if (dateFilter) {
       filtered = filtered.filter((order) => {
@@ -108,20 +109,7 @@ export default function OrderList({ onViewOrder }: OrderListProps) {
             />
           </div>
 
-          <div className="relative">
-            <Filter className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-            <select
-              className="w-full pl-12 pr-4 py-4 bg-slate-50 border-transparent rounded-[1.5rem] focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none appearance-none font-bold text-slate-700 cursor-pointer"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <option value="All">All Statuses</option>
-              <option value="Pending">Pending</option>
-              <option value="Cooking">Cooking</option>
-              <option value="Ready">Ready</option>
-              <option value="Completed">Completed</option>
-            </select>
-          </div>
+          {/* Status filter removed as per request */}
 
           <div className="relative">
             <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
@@ -179,8 +167,13 @@ export default function OrderList({ onViewOrder }: OrderListProps) {
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-slate-50 rounded-xl text-slate-400"><Package size={18} /></div>
                     <div>
-                      <p className="text-[10px] font-black text-slate-400 uppercase leading-none mb-1">Item & Weight</p>
-                      <p className="font-bold text-slate-700">{order.biryani_type} <span className="text-blue-600">({order.quantity}kg)</span></p>
+                      <p className="text-[10px] font-black text-slate-400 uppercase leading-none mb-1">Items</p>
+                      <p className="font-bold text-slate-700">
+                        {order.order_items && order.order_items.length > 0
+                          ? order.order_items.slice(0, 3).map(i => `${i.product_name} (x${i.quantity})`).join(', ') + (order.order_items.length > 3 ? ` +${order.order_items.length - 3} more` : '')
+                          : 'No items'}
+                        <span className="text-blue-600"> ({order.order_items ? order.order_items.length : 0} items)</span>
+                      </p>
                     </div>
                   </div>
                 </div>

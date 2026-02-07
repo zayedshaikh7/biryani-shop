@@ -1,17 +1,18 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { Order, OrderStatus, PaymentMode } from '../types/order';
+import { Order, OrderItem, OrderStatus, PaymentMode } from '../types/order';
 import { formatCurrency, formatDate, calculatePaymentStatus } from '../utils/orderUtils';
 import { 
   Phone, 
-  Save, 
   Edit, 
   MessageCircle, 
   Trash2, 
   ChevronLeft,
   Calendar,
   User,
-  Hash
+  Hash,
+  CheckCircle,
+  RotateCcw
 } from 'lucide-react';
 
 interface OrderDetailsProps {
@@ -38,13 +39,45 @@ export default function OrderDetails({ order, onBack, onUpdate }: OrderDetailsPr
   };
 
   const sendWhatsAppSlip = () => {
-    const message = `*--- BIRYANI SHOP RECEIPT ---*\n*Order #:* ${order.order_number}\n--------------------------------\n*Customer:* ${order.customer_name}\n*Item:* ${order.biryani_type}\n*Weight:* ${order.quantity} KG\n*Total Bill:* ${formatCurrency(order.price)}\n--------------------------------\n*Status:* ${formData.order_status}\n*Paid:* ${formatCurrency(formData.advance_payment)}\n*BALANCE DUE:* ${formatCurrency(newRemainingAmount)}\n--------------------------------\n_Thank you!_`;
+    const itemsLines = Array.isArray(order.order_items) && order.order_items.length > 0
+      ? order.order_items.map(i => `- ${i.product_name} x${i.quantity} @ ${formatCurrency(i.unit_price)} = ${formatCurrency(i.line_total)}`).join('\n')
+      : `${order.biryani_type} x${order.quantity} @ ${formatCurrency(order.unit_price)} = ${formatCurrency(order.price)}`;
+    const message = `*--- ORDERTRACK RECEIPT ---*\n*Order #:* ${order.order_number}\n--------------------------------\n*Customer:* ${order.customer_name}\n${itemsLines}\n--------------------------------\n*Total Bill:* ${formatCurrency(order.price)}\n*Status:* ${formData.order_status}\n*Paid:* ${formatCurrency(formData.advance_payment)}\n*BALANCE DUE:* ${formatCurrency(newRemainingAmount)}\n--------------------------------\n_Thank you!_`;
     window.open(`https://wa.me/91${formData.mobile_number}?text=${encodeURIComponent(message)}`, '_blank');
+  };
+
+  const handleStatusQuickUpdate = async (nextStatus: OrderStatus) => {
+    setLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { error } = await supabase
+        .from('orders')
+        .update({
+          order_status: nextStatus,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', order.id)
+        .eq('shop_id', user.id);
+
+      if (error) throw error;
+      setFormData(prev => ({ ...prev, order_status: nextStatus }));
+      onUpdate();
+    } catch (error) {
+      console.error(error);
+      alert('Failed to update status');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleUpdate = async () => {
     setLoading(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
       const { error } = await supabase
         .from('orders')
         .update({
@@ -56,7 +89,8 @@ export default function OrderDetails({ order, onBack, onUpdate }: OrderDetailsPr
           payment_status: newPaymentStatus,
           updated_at: new Date().toISOString(),
         })
-        .eq('id', order.id);
+        .eq('id', order.id)
+        .eq('shop_id', user.id);
 
       if (error) throw error;
       setIsEditing(false);
@@ -73,7 +107,14 @@ export default function OrderDetails({ order, onBack, onUpdate }: OrderDetailsPr
     if (window.confirm("ARE YOU SURE? This will permanently delete this record from the vault.")) {
       setLoading(true);
       try {
-        const { error } = await supabase.from('orders').delete().eq('id', order.id);
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error('Not authenticated');
+
+        const { error } = await supabase
+          .from('orders')
+          .delete()
+          .eq('id', order.id)
+          .eq('shop_id', user.id);
         if (error) throw error;
         onUpdate();
         onBack();
@@ -123,7 +164,7 @@ export default function OrderDetails({ order, onBack, onUpdate }: OrderDetailsPr
                 <h2 className="text-4xl font-black tracking-tighter">{order.order_number}</h2>
               </div>
               <div className="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-white/10 bg-white/5 backdrop-blur-md">
-                {order.order_status}
+                {formData.order_status}
               </div>
             </div>
 
@@ -164,39 +205,57 @@ export default function OrderDetails({ order, onBack, onUpdate }: OrderDetailsPr
                 </div>
               </div>
             ) : (
-              <div className="space-y-8">
-                <div className="bg-slate-50 rounded-3xl p-6 flex items-center justify-between">
-                   <div>
-                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Kitchen Preparation</p>
-                     <p className="text-xl font-black text-slate-800">{order.biryani_type}</p>
-                   </div>
-                   <div className="bg-white px-4 py-2 rounded-2xl border border-slate-200 font-black text-blue-600">
-                     {order.quantity} KG
-                   </div>
+              <>
+                <div className="bg-slate-50 rounded-3xl p-6">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Items</p>
+                  {Array.isArray(order.order_items) && order.order_items.length > 0 ? (
+                    <div className="space-y-2">
+                      {order.order_items.map((i, idx) => (
+                        <div key={idx} className="flex justify-between items-center">
+                          <span className="font-bold text-slate-800">{i.product_name}</span>
+                          <span className="text-slate-600">x{i.quantity} • {formatCurrency(i.unit_price)} <span className="text-slate-400">= {formatCurrency(i.line_total)}</span></span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-slate-500">No items for this order</div>
+                  )}
                 </div>
-
-                <div className="grid grid-cols-2 gap-x-12 gap-y-8">
+                <div className="bg-white px-4 py-2 rounded-2xl border border-slate-200 font-black text-blue-600">
+                  Total Items: {Array.isArray(order.order_items) ? order.order_items.reduce((acc, i) => acc + Number(i.quantity || 0), 0) : order.quantity}
+                </div>
+                {/* FINANCIAL SUMMARY */}
+                <div className="grid grid-cols-2 gap-6 mt-6">
                   <FinancialItem label="Total Bill" value={formatCurrency(order.price)} />
-                  <FinancialItem label="Advance Paid" value={formatCurrency(order.advance_payment)} color="text-emerald-600" />
-                  <FinancialItem label="Payment Status" value={order.payment_status} />
-                  <FinancialItem label="Balance Due" value={formatCurrency(order.remaining_amount)} color="text-rose-600" />
+                  <FinancialItem label="Advance Paid" value={formatCurrency(formData.advance_payment)} color="text-emerald-600" />
+                  <FinancialItem label="Payment Status" value={newPaymentStatus} />
+                  <FinancialItem label="Balance Due" value={formatCurrency(newRemainingAmount)} color="text-rose-600" />
                 </div>
-
-                <div className="flex flex-wrap gap-4 pt-8">
-                  <button onClick={() => setIsEditing(true)} className="flex-1 bg-slate-100 text-slate-600 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest flex justify-center items-center gap-2 hover:bg-slate-200 transition-all">
-                    <Edit size={16}/> Edit
-                  </button>
-                  <button onClick={sendWhatsAppSlip} className="flex-[2] bg-green-600 text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest flex justify-center items-center gap-2 shadow-xl shadow-green-100 hover:scale-[1.02] transition-all active:scale-95">
-                    <MessageCircle size={18}/> Send Digital Receipt
-                  </button>
-                  <button onClick={handleCall} className="bg-blue-600 text-white p-4 rounded-2xl shadow-xl shadow-blue-100 hover:rotate-12 transition-transform">
-                    <Phone size={22}/>
-                  </button>
-                </div>
-              </div>
+              </>
             )}
           </div>
         </div>
+        {/* ACTION BAR */}
+        {!isEditing && (
+          <div className="mt-6 flex items-center gap-4">
+            <button
+              onClick={() => handleStatusQuickUpdate(formData.order_status === 'Completed' ? 'Pending' as OrderStatus : 'Completed' as OrderStatus)}
+              disabled={loading}
+              className={`flex-[2] py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl flex items-center justify-center gap-2 ${formData.order_status === 'Completed' ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-amber-200' : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200'}`}
+            >
+              {formData.order_status === 'Completed' ? (<><RotateCcw size={16} /> Mark Pending</>) : (<><CheckCircle size={16} /> Mark Completed</>)}
+            </button>
+            <button onClick={() => setIsEditing(true)} className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-800 py-4 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2">
+              <Edit size={16} /> Edit
+            </button>
+            <button onClick={sendWhatsAppSlip} className="flex-[2] bg-emerald-600 hover:bg-emerald-700 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-emerald-200 flex items-center justify-center gap-2">
+              <MessageCircle size={16} /> Send Digital Receipt
+            </button>
+            <button onClick={handleCall} className="p-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl shadow-xl shadow-blue-200">
+              <Phone size={20} />
+            </button>
+          </div>
+        )}
         <p className="text-center text-slate-300 font-black text-[10px] uppercase tracking-[0.3em] mt-8">
           System Sync • {formatDate(order.updated_at)}
         </p>

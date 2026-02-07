@@ -13,7 +13,7 @@ import {
 
 type TimeRange = 'today' | 'monthly' | 'total';
 
-export default function Dashboard() {
+export default function Dashboard({ shopName }: { shopName?: string }) {
   const [timeRange, setTimeRange] = useState<TimeRange>('today');
   const [stats, setStats] = useState({
     totalOrders: 0,
@@ -31,7 +31,10 @@ export default function Dashboard() {
   const fetchDashboardStats = async () => {
     setLoading(true);
     try {
-      let query = supabase.from('orders').select('*');
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      let query = supabase.from('orders').select('*').eq('shop_id', user.id);
       const now = new Date();
       if (timeRange === 'today') {
         const today = new Date(now.setHours(0, 0, 0, 0));
@@ -76,12 +79,18 @@ export default function Dashboard() {
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-12">
           <div>
             <div className="flex items-center gap-2 mb-2 text-blue-600 font-bold text-sm uppercase tracking-[0.2em]">
-              <div className="w-8 h-[2px] bg-blue-600"></div>
-              Live Overview
+              {/* <div className="w-8 h-[2px] bg-blue-600"></div> */}
+              
             </div>
-            <h1 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tight">
-              Shop <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">Analytics</span>
-            </h1>
+           <h1 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tight">
+  {shopName
+    ? `${shopName.charAt(0).toUpperCase()}${shopName.slice(1)}`
+    : ''}{' '}
+  <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">
+    Dashboard
+  </span>
+</h1>
+
           </div>
 
           {/* ELEGANT TOGGLE */}
@@ -136,13 +145,7 @@ export default function Dashboard() {
                 accent="rose"
                 isAlert={stats.balanceOwed > 0}
               />
-              <StatCard 
-                icon={<TrendingUp size={24} />} 
-                label="Best Seller" 
-                value={stats.mostSoldBiryani} 
-                range={timeRange}
-                accent="amber"
-              />
+              {/* Top Item card removed as requested */}
             </div>
 
             {/* ACTION CARD: Remaining Orders */}
